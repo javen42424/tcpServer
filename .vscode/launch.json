@@ -1,0 +1,31 @@
+// vscode 的 debug 用的配置文件
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "CMake Debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/http_server", // 可执行文件的路径，根据实际情况修改
+            "args": [], // 程序运行时的参数，根据需要修改
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb", // 调试器类型，根据实际情况修改
+            "setupCommands": [
+                {
+                    "description": "为 gdb 启用整齐打印",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            // 选择要使用的 C++ 调试引擎。
+            // 有关详细信息，请参阅 https://aka.ms/VSCode-CPP-DebugConfigurationProperties
+            "preLaunchTask": "CMake Build" // 在调试之前执行的任务，根据需要修改
+        }
+    ]
+}

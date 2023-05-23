@@ -1,0 +1,17 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "CMake Build",
+            "type": "shell",
+            "command": "cmake --build build", // 使用 cmake 命令来构建 build 目录下的项目
+            "group": {
+                "kind": "build",
+                "isDefault": true // 设置为默认的构建任务，可以使用 Ctrl+Shift+B 快捷键来执行
+            },
+            "problemMatcher": "$gcc" // 使用 gcc 的问题匹配器来检测编译错误或警告
+        }
+    ]
+}
