@@ -8,6 +8,15 @@ project(http_server VERSION 1.0)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+include(FetchContent)
+FetchContent_Declare(llhttp
+  URL "https://github.com/nodejs/llhttp/archive/refs/tags/release/v8.1.0.tar.gz")
+
+set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "")
+set(BUILD_STATIC_LIBS ON CACHE INTERNAL "")
+FetchContent_MakeAvailable(llhttp)
+
+
 # 使用 FetchContent 模块来下载 libuv
 include(FetchContent)
 FetchContent_Declare(
@@ -21,10 +30,12 @@ FetchContent_MakeAvailable(libuv)
 add_executable(http_server main.cpp)
 
 # 链接 libuv 库
-target_link_libraries(http_server PRIVATE uv_a)
+target_link_libraries(http_server PRIVATE uv_a llhttp_static)
 
 # 添加 libuv 的头文件目录到编译器的搜索路径中
 target_include_directories(http_server PRIVATE ${libuv_SOURCE_DIR}/include)
+
+target_include_directories(http_server PRIVATE ${llhttp_SOURCE_DIR}/include)
 
 # 关闭编译优化，设置编译标志为 -O0
 target_compile_options(http_server PRIVATE -O0 -g)
