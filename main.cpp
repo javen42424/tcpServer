@@ -19,8 +19,53 @@ typedef struct {
   int request_len;       // 存储请求报文的长度
 } client_t;
 
+// 定义一个回调函数集合
+llhttp_settings_t settings;
+
+// 定义一个响应缓冲区
+char response[1024];
+int response_len = 0;
+
 // 定义一个全局变量，用于存储 libuv 的事件循环
 uv_loop_t *loop;
+
+// 定义一个回调函数，用于处理 on_message_begin 事件
+int on_message_begin(llhttp_t* parser) {
+  // 初始化响应缓冲区
+  response_len = 0;
+  return 0;
+}
+
+// 定义一个回调函数，用于处理 on_url 事件
+int on_url(llhttp_t* parser, const char* at, size_t length) {
+  // 检查请求的 URL 是否是 "/"
+  if (length == 1 && at[0] == '/') {
+    // 如果是，就生成一个 200 OK 的响应状态行
+    response_len += sprintf(response + response_len, "HTTP/1.1 200 OK\r\n");
+  } else {
+    // 如果不是，就生成一个 404 Not Found 的响应状态行
+    response_len += sprintf(response + response_len, "HTTP/1.1 404 Not Found\r\n");
+  }
+  return 0;
+}
+
+// 定义一个回调函数，用于处理 on_header_complete 事件
+int on_headers_complete(llhttp_t* parser) {
+  // 在响应头部中添加一个 Content-Type 字段
+  response_len += sprintf(response + response_len, "Content-Type: text/plain\r\n");
+  // 结束响应头部
+  response_len += sprintf(response + response_len, "\r\n");
+  return 0;
+}
+
+// 定义一个回调函数，用于处理 on_message_complete 事件
+int on_message_complete(llhttp_t* parser) {
+  // 在响应正文中添加一个 "Hello world!" 消息
+  response_len += sprintf(response + response_len, "Hello world!");
+  // 打印响应缓冲区的内容
+  printf("%s\n", response);
+  return 0;
+}
 
 // 定义一个回调函数，用于处理写请求的完成事件
 void on_write_end(uv_write_t *req, int status) {
@@ -97,8 +142,8 @@ void on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     }
 
     // 将读取到的数据追加到请求报文缓冲区中，并更新长度
-    // memcpy(client->request + client->request_len, buf->base, nread);
-    // client->request_len += nread;
+    memcpy(client->request + client->request_len, buf->base, nread);
+    client->request_len += nread;
 
     std::cout << "on_read 13 " << std::endl;
 
@@ -106,8 +151,8 @@ void on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     if (llhttp_finish(&client->parser) == HPE_OK) {
       std::cout << "on_read 14 " << std::endl;
       uv_buf_t res;
-      res.base = client->request;
-      res.len = client->request_len;
+      res.base = response;
+      res.len = response_len;
       uv_write_t req;
       uv_write(&req, stream, &res, 1, on_write_end);
       std::cout << "on_read 15 " << " type : " << (uv_handle_t *)stream->type << std::endl;
@@ -147,8 +192,8 @@ void on_connection(uv_stream_t *server, int status) {
 
   std::cout << "on_connection 5 " << std::endl;
 
-  // 初始化 llhttp 的解析器，并设置其类型为 HTTP_REQUEST
-  llhttp_init(&client->parser, HTTP_REQUEST, NULL);
+  // 初始化 llhttp 的解析器，并设置其类型为 HTTP_BOTH (既可以解析请求报文，也可以解析响应报文)
+  llhttp_init(&client->parser, HTTP_BOTH, &settings);
 
   std::cout << "on_connection 6 " << std::endl;
 
@@ -175,6 +220,14 @@ int main() {
   // 创建一个 libuv 的 TCP 句柄，并初始化其内容
   uv_tcp_t server;
   uv_tcp_init(loop, &server);
+
+  llhttp_settings_init(&settings);
+
+  // 设置回调函数
+  settings.on_message_begin = on_message_begin;
+  settings.on_url = on_url;
+  settings.on_headers_complete = on_headers_complete;
+  settings.on_message_complete = on_message_complete;
 
   // 创建一个 IPv4 地址结构体，并设置其 IP 地址和端口号为本地的 8000 端口
   struct sockaddr_in addr;
