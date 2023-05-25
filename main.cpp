@@ -30,41 +30,53 @@ int response_len = 0;
 uv_loop_t *loop;
 
 // 定义一个回调函数，用于处理 on_message_begin 事件
-int on_message_begin(llhttp_t* parser) {
+int on_message_begin(llhttp_t *parser) {
   // 初始化响应缓冲区
   response_len = 0;
   return 0;
 }
 
 // 定义一个回调函数，用于处理 on_url 事件
-int on_url(llhttp_t* parser, const char* at, size_t length) {
+int on_url(llhttp_t *parser, const char *at, size_t length) {
   // 检查请求的 URL 是否是 "/"
   if (length == 1 && at[0] == '/') {
     // 如果是，就生成一个 200 OK 的响应状态行
     response_len += sprintf(response + response_len, "HTTP/1.1 200 OK\r\n");
   } else {
     // 如果不是，就生成一个 404 Not Found 的响应状态行
-    response_len += sprintf(response + response_len, "HTTP/1.1 404 Not Found\r\n");
+    response_len +=
+        sprintf(response + response_len, "HTTP/1.1 404 Not Found\r\n");
   }
   return 0;
 }
 
 // 定义一个回调函数，用于处理 on_header_complete 事件
-int on_headers_complete(llhttp_t* parser) {
+int on_headers_complete(llhttp_t *parser) {
   // 在响应头部中添加一个 Content-Type 字段
-  response_len += sprintf(response + response_len, "Content-Type: text/plain\r\n");
+  response_len +=
+      sprintf(response + response_len, "Content-Type: text/plain\r\n");
   // 结束响应头部
   response_len += sprintf(response + response_len, "\r\n");
   return 0;
 }
 
 // 定义一个回调函数，用于处理 on_message_complete 事件
-int on_message_complete(llhttp_t* parser) {
+int on_message_complete(llhttp_t *parser) {
   // 在响应正文中添加一个 "Hello world!" 消息
   response_len += sprintf(response + response_len, "Hello world!");
   // 打印响应缓冲区的内容
   printf("%s\n", response);
   return 0;
+}
+
+// 连接关闭时
+void on_close(uv_handle_t *handle) {
+  // 释放客户端连接的内存
+  client_t *client = (client_t *)handle->data;
+  if (client) {
+    std::cout << "on_close 1 " << client << std::endl;
+    delete client;
+  }
 }
 
 // 定义一个回调函数，用于处理写请求的完成事件
@@ -78,10 +90,10 @@ void on_write_end(uv_write_t *req, int status) {
 
   std::cout << "on_write_end  2 " << std::endl;
 
-  uv_close((uv_handle_t *)&client->tcp, NULL);
+  uv_close((uv_handle_t *)&client->tcp, on_close);
 
   std::cout << "on_write_end 3 " << std::endl;
-//   delete client;
+  //   delete client;
 }
 
 // 定义一个回调函数，用于在分配读取缓冲区时使用
@@ -97,7 +109,7 @@ void on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
   uv_tcp_t *tcp = (uv_tcp_t *)stream;
   client_t *client = (client_t *)tcp->data;
 
-  std::cout << "on_read 1 " << std::endl;
+  std::cout << "on_read 1 " << client << std::endl;
 
   // 检查是否有错误发生
   if (nread < 0) {
@@ -107,7 +119,7 @@ void on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
       std::cout << "on_read 3 " << std::endl;
       uv_close((uv_handle_t *)stream, NULL);
       std::cout << "on_read 4 " << std::endl;
-    //   delete client;
+      //   delete client;
     }
     // 否则打印错误信息
     else {
@@ -135,8 +147,7 @@ void on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
       std::cout << "on_read 10 " << std::endl;
       uv_close((uv_handle_t *)stream, NULL);
       std::cout << "on_read 11 " << std::endl;
-    //   delete client;
-      delete buf->base;
+      //   delete client;
       std::cout << "on_read 12 " << std::endl;
       return;
     }
@@ -145,25 +156,26 @@ void on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     memcpy(client->request + client->request_len, buf->base, nread);
     client->request_len += nread;
 
-    std::cout << "on_read 13 " << std::endl;
+    std::cout << "on_read 13 " << client << std::endl;
 
     // 如果解析完成，则发送响应报文给客户端，并关闭连接
     if (llhttp_finish(&client->parser) == HPE_OK) {
       std::cout << "on_read 14 " << std::endl;
-      uv_buf_t res;
-      res.base = response;
-      res.len = response_len;
-      uv_write_t req;
-      uv_write(&req, stream, &res, 1, on_write_end);
-      std::cout << "on_read 15 " << " type : " << (uv_handle_t *)stream->type << std::endl;
-    //   uv_close((uv_handle_t *)stream, NULL);
-    //   delete client;
+      uv_buf_t *res = new uv_buf_t();
+      res->base = new char[response_len];
+      res->base = response;
+      res->len = response_len;
+      uv_write(&client->write_req, stream, res, 1, on_write_end);
+      std::cout << "on_read 15 "
+                << " type : " << (uv_handle_t *)stream->type << std::endl;
+      //   uv_close((uv_handle_t *)stream, NULL);
+      //   delete client;
       std::cout << "on_read 16 " << std::endl;
     }
   }
-  std::cout << "on_read 17 " << std::endl;
+  std::cout << "on_read 17 " << client << std::endl;
   // 释放缓冲区内存
-  delete buf->base;
+  // delete buf->base;
 }
 
 // 定义一个回调函数，用于在接受客户端连接时使用
@@ -177,22 +189,23 @@ void on_connection(uv_stream_t *server, int status) {
   }
   std::cout << "on_connection 3 " << std::endl;
   // 分配一个 client_t 结构体的内存，并初始化其内容
-//   client_t *client = (client_t *)malloc(sizeof(client_t));
-//   memset(client, 0, sizeof(client_t));
+  //   client_t *client = (client_t *)malloc(sizeof(client_t));
+  //   memset(client, 0, sizeof(client_t));
 
   // 新建一个client连接
-  client_t* client = new client_t();
+  client_t *client = new client_t();
   // 托管指针
   client->tcp.data = client;
 
-  std::cout << "on_connection 4 " << std::endl;
+  std::cout << "on_connection 4 " << client << std::endl;
 
   // 初始化 libuv 的 TCP 句柄，并将其与事件循环关联
   uv_tcp_init(loop, &client->tcp);
 
   std::cout << "on_connection 5 " << std::endl;
 
-  // 初始化 llhttp 的解析器，并设置其类型为 HTTP_BOTH (既可以解析请求报文，也可以解析响应报文)
+  // 初始化 llhttp 的解析器，并设置其类型为 HTTP_BOTH
+  // (既可以解析请求报文，也可以解析响应报文)
   llhttp_init(&client->parser, HTTP_BOTH, &settings);
 
   std::cout << "on_connection 6 " << std::endl;
@@ -208,7 +221,7 @@ void on_connection(uv_stream_t *server, int status) {
     uv_close((uv_handle_t *)&client->tcp, NULL);
     // delete client;
   }
-  std::cout << "on_connection 9 " << std::endl;
+  std::cout << "on_connection 9 " << client << std::endl;
 }
 
 // 主函数
