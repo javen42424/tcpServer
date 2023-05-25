@@ -36,7 +36,7 @@ void on_write_end(uv_write_t *req, int status) {
   uv_close((uv_handle_t *)&client->tcp, NULL);
 
   std::cout << "on_write_end 3 " << std::endl;
-  delete client;
+//   delete client;
 }
 
 // 定义一个回调函数，用于在分配读取缓冲区时使用
@@ -49,7 +49,8 @@ void alloc_buffer(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buf) {
 // 定义一个回调函数，用于在读取数据时使用
 void on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
   // 获取 client_t 结构体的指针
-  client_t *client = (client_t *)stream;
+  uv_tcp_t *tcp = (uv_tcp_t *)stream;
+  client_t *client = (client_t *)tcp->data;
 
   std::cout << "on_read 1 " << std::endl;
 
@@ -61,7 +62,7 @@ void on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
       std::cout << "on_read 3 " << std::endl;
       uv_close((uv_handle_t *)stream, NULL);
       std::cout << "on_read 4 " << std::endl;
-      free(client);
+    //   delete client;
     }
     // 否则打印错误信息
     else {
@@ -70,7 +71,7 @@ void on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
     }
     std::cout << "on_read 6 " << std::endl;
     // 释放缓冲区内存
-    free(buf->base);
+    delete buf->base;
     std::cout << "on_read 7 " << std::endl;
     return;
   }
@@ -89,15 +90,15 @@ void on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
       std::cout << "on_read 10 " << std::endl;
       uv_close((uv_handle_t *)stream, NULL);
       std::cout << "on_read 11 " << std::endl;
-      free(client);
-      free(buf->base);
+    //   delete client;
+      delete buf->base;
       std::cout << "on_read 12 " << std::endl;
       return;
     }
 
     // 将读取到的数据追加到请求报文缓冲区中，并更新长度
-    memcpy(client->request + client->request_len, buf->base, nread);
-    client->request_len += nread;
+    // memcpy(client->request + client->request_len, buf->base, nread);
+    // client->request_len += nread;
 
     std::cout << "on_read 13 " << std::endl;
 
@@ -108,16 +109,16 @@ void on_read(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buf) {
       res.base = client->request;
       res.len = client->request_len;
       uv_write_t req;
-      uv_write(&req, stream, &res, 1, NULL);
+      uv_write(&req, stream, &res, 1, on_write_end);
       std::cout << "on_read 15 " << " type : " << (uv_handle_t *)stream->type << std::endl;
-      uv_close((uv_handle_t *)stream, NULL);
-      free(client);
+    //   uv_close((uv_handle_t *)stream, NULL);
+    //   delete client;
       std::cout << "on_read 16 " << std::endl;
     }
   }
   std::cout << "on_read 17 " << std::endl;
   // 释放缓冲区内存
-  free(buf->base);
+  delete buf->base;
 }
 
 // 定义一个回调函数，用于在接受客户端连接时使用
@@ -131,8 +132,13 @@ void on_connection(uv_stream_t *server, int status) {
   }
   std::cout << "on_connection 3 " << std::endl;
   // 分配一个 client_t 结构体的内存，并初始化其内容
-  client_t *client = (client_t *)malloc(sizeof(client_t));
-  memset(client, 0, sizeof(client_t));
+//   client_t *client = (client_t *)malloc(sizeof(client_t));
+//   memset(client, 0, sizeof(client_t));
+
+  // 新建一个client连接
+  client_t* client = new client_t();
+  // 托管指针
+  client->tcp.data = client;
 
   std::cout << "on_connection 4 " << std::endl;
 
@@ -155,7 +161,7 @@ void on_connection(uv_stream_t *server, int status) {
     std::cout << "on_connection 8 " << std::endl;
     // 如果接受失败，则关闭连接并释放资源
     uv_close((uv_handle_t *)&client->tcp, NULL);
-    free(client);
+    // delete client;
   }
   std::cout << "on_connection 9 " << std::endl;
 }
